@@ -1,14 +1,14 @@
 import base64
 import requests
 import json
-import payload
+import payloadExample
 import callLLMModel
 
 GITHUB_API_URL = "https://api.github.com"
-ACCESS_TOKEN = "Access Token"
+ACCESS_TOKEN = "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"
 OWNER = "kethuchandra"
 REPO = "Github_plugin_test"
-PULL_NUMBER = 3  # Replace with the actual pull request number
+PULL_NUMBER = 6 # Replace with the actual pull request number
 
 # OWNER = payload.user_name
 # REPO = payload.repo_name
@@ -40,36 +40,67 @@ def review_pull_request():
     # Step 1: List pull request files with commit id
     files,files_content,commit_id_list = list_pull_request_files()
     print(files_content)
+    testing_with_issue_comments()
     i = 0
     for file in files:
         filename = file["filename"]
         file_code = file["patch"]
-        review_comment = adding_comments_to_git(str(file_code))
+        print(file_code)
+        review_comment = review_llm(str(file_code))
         # print(review_comment)
-
-        url_comments = f'{GITHUB_API_URL}/repos/{OWNER}/{REPO}/pulls/{PULL_NUMBER}/comments'
-        headers = {
-                'Authorization': f'token {ACCESS_TOKEN}',
-                'Accept': 'application/vnd.github.v3+json'
-                }
-    
-        data = { "body": review_comment, "path": filename, "commit_id": commit_id_list[i], "position": 1 }
+        adding_comments_to_github(review_comment,filename,commit_id_list[i])
         i = i+1
-        response = requests.post(url_comments, headers=headers, json=data)
-        statusCode = response.status_code
-        responseBody = response.text
-        print("Response Status Code: " + str(statusCode))
-        print("Response Body: " + responseBody)
-        if response.ok:
-            print("Comment added successfully")
-        else:
-            print("Failed to add comment")
-        
-        # Add logic to review the file, examine changes, lines, or sections
-        # Step 3: Add review comments
-        # add_review_comment(filename, additions, deletions)
+    addingReviewForEntirePullRequest("Adding Review For Entire PullRequest")
 
-def adding_comments_to_git(file_code):
+def adding_comments_to_github(review_comment,filename,commitId):
+    url_comments = f'{GITHUB_API_URL}/repos/{OWNER}/{REPO}/pulls/{PULL_NUMBER}/comments'
+    headers = {
+            'Authorization': f'token {ACCESS_TOKEN}',
+            'Accept': 'application/vnd.github.v3+json'
+            }
+
+    data = { "body": review_comment, "path": filename, "commit_id": commitId,"position": 2}
+    response = requests.post(url_comments, headers=headers, json=data)
+    statusCode = response.status_code
+    responseBody = response.text
+    print("Response Status Code: " + str(statusCode))
+    print("Response Body: " + responseBody)
+    if response.ok:
+        print("Comment added successfully")
+    else:
+        print("Failed to add comment")
+
+def testing_with_issue_comments():
+    url = f"https://api.github.com/repos/{OWNER}/{REPO}/issues/{7}/comments" 
+    # issues/{issue_number}/comments
+    headers = {"Authorization": f"token {ACCESS_TOKEN}"}
+    data = {"body": "Your Message to Comment"}
+    response = requests.post(url, headers=headers, data=json.dumps(data))
+    print(response.status_code)
+    if response.ok:
+        print("Comment added successfully")
+    else:
+        print("Failed to add comment")
+
+def addingReviewForEntirePullRequest(review_comment):
+    url_comments = f'{GITHUB_API_URL}/repos/{OWNER}/{REPO}/pulls/{PULL_NUMBER}/reviews'
+    headers = {
+            'Authorization': f'token {ACCESS_TOKEN}',
+            'Accept': 'application/vnd.github.v3+json'
+            }
+
+    data = { "body": review_comment}
+    response = requests.post(url_comments, headers=headers, json=data)
+    statusCode = response.status_code
+    responseBody = response.text
+    print("Response Status Code: " + str(statusCode))
+    print("Response Body: " + responseBody)
+    if response.ok:
+        print("Review added successfully")
+    else:
+        print("Failed to add Revuew")
+    
+def review_llm(file_code):
     review_comment = callLLMModel.functional_method(file_code)
     return review_comment
 
@@ -138,36 +169,36 @@ def add_review_comment(filename, additions, deletions):
     # Implement logic to add review comments
     pass
 
-def fetchDiffPatchesFromPullRequest(commit_id,files):
-    x = []
-    for file in files:
-        filename = file["filename"]
-        url = f"{GITHUB_API_URL}/repos/{OWNER}/{REPO}/pulls/{PULL_NUMBER}/commits/{commit_id}/files/{filename}" 
-        headers = {
-            "Authorization": "Bearer " + ACCESS_TOKEN,
-            "Accept": "application/vnd.github.v3+json"
-        }
+# def fetchDiffPatchesFromPullRequest(commit_id,files):
+#     x = []
+#     for file in files:
+#         filename = file["filename"]
+#         url = f"{GITHUB_API_URL}/repos/{OWNER}/{REPO}/pulls/{PULL_NUMBER}/commits/{commit_id}/files/{filename}" 
+#         headers = {
+#             "Authorization": "Bearer " + ACCESS_TOKEN,
+#             "Accept": "application/vnd.github.v3+json"
+#         }
 
-        try:
-            response = requests.get(url, headers=headers)
-            responseBody = response.text
-            print(responseBody)
-            print(response)
-            if response.ok:
-                response_json = json.loads(responseBody)
-                contents_url = response_json[0]['contents_url']
-                response = response_json.get(contents_url)
-                content = response.json()['content']
-                decoded_content = base64.b64decode(content).decode('utf-8')
-                x.append(decoded_content)
-                print(decoded_content)
-                return decoded_content
-            else:
-                print("Failed to fetch pull request files")
+#         try:
+#             response = requests.get(url, headers=headers)
+#             responseBody = response.text
+#             print(responseBody)
+#             print(response)
+#             if response.ok:
+#                 response_json = json.loads(responseBody)
+#                 contents_url = response_json[0]['contents_url']
+#                 response = response_json.get(contents_url)
+#                 content = response.json()['content']
+#                 decoded_content = base64.b64decode(content).decode('utf-8')
+#                 x.append(decoded_content)
+#                 print(decoded_content)
+#                 return decoded_content
+#             else:
+#                 print("Failed to fetch pull request files")
             
-        except requests.exceptions.RequestException as e:
-            print(e)
-    return x
+#         except requests.exceptions.RequestException as e:
+#             print(e)
+#     return x
 
 if __name__ == "__main__":
     main()
