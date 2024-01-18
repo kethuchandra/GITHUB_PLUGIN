@@ -5,10 +5,10 @@ import payloadExample
 import callLLMModel
 
 GITHUB_API_URL = "https://api.github.com"
-ACCESS_TOKEN = "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"
+ACCESS_TOKEN = "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"
 OWNER = "kethuchandra"
 REPO = "Github_plugin_test"
-PULL_NUMBER = 6 # Replace with the actual pull request number
+PULL_NUMBER = 8 # Replace with the actual pull request number
 
 # OWNER = payload.user_name
 # REPO = payload.repo_name
@@ -40,19 +40,43 @@ def review_pull_request():
     # Step 1: List pull request files with commit id
     files,files_content,commit_id_list = list_pull_request_files()
     print(files_content)
-    testing_with_issue_comments()
+    # testing_with_issue_comments()
     i = 0
     for file in files:
         filename = file["filename"]
         file_code = file["patch"]
         print(file_code)
-        review_comment = review_llm(str(file_code))
+        # review_comment = review_llm(str(file_code))
+        review_comment = "Review Comments:1. Line 2: Import Statements No issues with import statements. 2. Lines 3-12: CodeDialog Class Lines 5-8:The comment // test the codeDialog box is unclear and doesn't provide meaningful information. Consider providing a more descriptive comment. Lines 9-11: The added for loop is missing braces {}. Consider adding braces for better code structure and readability. Overall Feedback:Consider providing clearer comments, especially for the purpose of the comment at Line 5. Add braces {} to the newly added for loop for better code structure. The feedback aims to improve code clarity and maintainability."
         # print(review_comment)
-        adding_comments_to_github(review_comment,filename,commit_id_list[i])
+        lineCommentDict,fileFeedback = extract_comments(review_comment)
+        adding_comments_to_github(lineCommentDict,filename,commit_id_list[i])
         i = i+1
-    addingReviewForEntirePullRequest("Adding Review For Entire PullRequest")
+    # addingReviewForEntirePullRequest("Adding Review For Entire PullRequest")
+
+import re
+def extract_comments(input_string):
+    total_reponse = input_string.split("Review Comments:")
+    fetching_review = total_reponse[1]
+    print(fetching_review)
+    overallFeedback = fetching_review.split("Overall Feedback:")
+    fileFeedback = overallFeedback[-1]
+    fetching_review_lines = overallFeedback[0]
+    feedback_list = re.split(r'(\d+\.)',fetching_review_lines)
+    p =[]
+    for i in feedback_list:
+        if("Line" in i):
+            p.append(i)
+    result_dict = {}
+    for item in p:
+        match = re.match(r'\s*(.*?):\s*(.*)', item)
+        if match:
+            key, value = match.groups()
+            result_dict[key.strip()] = value.strip()
+    return result_dict,fileFeedback
 
 def adding_comments_to_github(review_comment,filename,commitId):
+    print(review_comment)
     url_comments = f'{GITHUB_API_URL}/repos/{OWNER}/{REPO}/pulls/{PULL_NUMBER}/comments'
     headers = {
             'Authorization': f'token {ACCESS_TOKEN}',
